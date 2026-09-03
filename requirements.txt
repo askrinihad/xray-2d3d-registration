@@ -1,0 +1,12 @@
+torch>=2.0
+nanodrr[all]
+numpy
+matplotlib
+opencv-python
+onnx
+onnxruntime
+scikit-image
+tqdm
+
+# No PyTorch3D needed -- nanodrr is pure PyTorch and installs with plain pip,
+# on any platform including Windows.

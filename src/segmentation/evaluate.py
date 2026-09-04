@@ -19,7 +19,7 @@ def main():
         else "cpu"
     )
 
-    val_ds = ArcadeSegmentationDataset("data/arcade", split="val", task="syntax")
+    val_ds = ArcadeSegmentationDataset("data/arcade/arcade", split="val", task="syntax")
     model = SmallUNet().to(device)
     model.load_state_dict(torch.load("results/vessel_unet.pt", map_location=device))
     model.eval()

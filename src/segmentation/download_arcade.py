@@ -7,6 +7,7 @@ Run:
 """
 import os
 import sys
+import time
 import zipfile
 import urllib.request
 
@@ -25,10 +26,23 @@ def _progress(block_num, block_size, total_size):
 def main():
     os.makedirs("data", exist_ok=True)
 
+    max_attempts = 5
     if not os.path.exists(DEST_ZIP):
-        print("Downloading ARCADE dataset (~450 MB) from Zenodo...")
-        urllib.request.urlretrieve(URL, DEST_ZIP, reporthook=_progress)
-        print("\nDownload complete.")
+        for attempt in range(1, max_attempts + 1):
+            print(f"Downloading ARCADE dataset (~450 MB) from Zenodo... (attempt {attempt}/{max_attempts})")
+            try:
+                urllib.request.urlretrieve(URL, DEST_ZIP, reporthook=_progress)
+                print("\nDownload complete.")
+                break
+            except Exception as e:
+                print(f"\n  download failed: {e}")
+                if os.path.exists(DEST_ZIP):
+                    os.remove(DEST_ZIP)  # remove partial file before retrying
+                if attempt == max_attempts:
+                    raise
+                wait = 5 * attempt
+                print(f"  retrying in {wait}s...")
+                time.sleep(wait)
     else:
         print("Zip already downloaded, skipping.")
 

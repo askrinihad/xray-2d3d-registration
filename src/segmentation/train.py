@@ -29,8 +29,8 @@ def main():
     )
     print("Using device:", device)
 
-    train_ds = ArcadeSegmentationDataset("data/arcade", split="train", task="syntax")
-    val_ds = ArcadeSegmentationDataset("data/arcade", split="val", task="syntax")
+    train_ds = ArcadeSegmentationDataset("data/arcade/arcade", split="train", task="syntax")
+    val_ds = ArcadeSegmentationDataset("data/arcade/arcade", split="val", task="syntax")
     print(f"Train images: {len(train_ds)}  |  Val images: {len(val_ds)}")
 
     train_loader = DataLoader(train_ds, batch_size=8, shuffle=True, num_workers=2)

@@ -2,24 +2,26 @@
 
 A computer vision toolkit for image-guided interventional imaging,
 covering 2D-3D registration, learned pose estimation, vessel
-segmentation, and deployment optimization for real-time inference.
+segmentation, motion tracking, and deployment optimization for
+real-time inference.
 
 ## Overview
 
-The toolkit addresses the core technical problem in X-ray guided
+The toolkit addresses the core technical problems in X-ray guided
 interventional procedures: aligning a pre-operative 3D volume (CT) with
-live intra-operative 2D projections (fluoroscopy), so that anatomy can be
-tracked in 3D from 2D imaging alone. It implements and compares two
-approaches to this registration problem — classical gradient-based
-optimization and a learned CNN — and prepares the learned model for
-real-time embedded deployment via ONNX export and quantization.
+live intra-operative 2D projections (fluoroscopy), segmenting vascular
+structures, tracking anatomy across a sequence under physiological
+motion, and preparing models for real-time embedded inference. Two
+approaches to registration are implemented and compared — classical
+gradient-based optimization and a learned CNN — and the learned model
+is optimized for deployment via ONNX export and quantization.
 
 | Module | Status | Description |
 |---|---|---|
-| `src/registration/` | Complete | DRR generation, classical gradient-based 2D-3D registration, and a learned CNN alternative with a held-out generalization test |
-| `src/segmentation/` | Complete | Binary coronary vessel segmentation (small U-Net) on the ARCADE dataset |
-| `src/deployment/` | Complete | ONNX export, INT8 quantization, latency/size profiling, and accuracy validation |
-| `src/tracking/` | Planned | Optical-flow-based tracking on synthetically deformed sequences |
+| `src/registration/` | Complete, validated | DRR generation, classical gradient-based 2D-3D registration, and a learned CNN alternative with a held-out generalization test |
+| `src/segmentation/` | Complete, validated | Binary coronary vessel segmentation (small U-Net) on the ARCADE dataset |
+| `src/tracking/` | Complete, validated | Keypoint tracking and dense motion estimation on a synthetically deformed sequence, validated against known ground truth |
+| `src/deployment/` | Complete, validated | ONNX export, INT8 quantization, latency/size profiling, and accuracy validation |
 
 ## Results summary
 
@@ -35,7 +37,28 @@ The classical method converges reliably (typically under 100 iterations)
 but requires iterative optimization per pose. The learned model predicts
 a pose in a single forward pass. The accuracy gap between seen and
 held-out anatomy reflects the limited subject diversity available in
-DeepFluoro (6 subjects total) rather than a flaw in the approach.
+DeepFluoro (6 subjects total) rather than a flaw in the approach; for
+reference, published state-of-the-art on this same dataset reaches
+sub-millimeter accuracy, reflecting the difference in scale between a
+research system and this project.
+
+**Segmentation** (ARCADE, binary vessel mask, small U-Net, 15 epochs):
+
+Validation Dice score of **0.75** (two independent runs: 0.7613, 0.7509).
+Qualitative review shows accurate localization of main vessel trunks,
+with fragmentation on thinner secondary branches and lower-contrast
+frames — a specific, addressable limitation rather than a general
+failure mode.
+
+**Tracking and motion estimation** (synthetic sequence derived from a
+real ARCADE frame, with known ground-truth deformation combining
+respiratory- and cardiac-like motion components):
+
+- 60/60 keypoints tracked successfully across all 20 frames with Lucas-Kanade
+  optical flow, with no drift onto incorrect structures
+- Dense motion estimation (Farneback optical flow) achieved a mean
+  End-Point Error of **2.82 px** against the known ground truth, with no
+  degrading trend across the sequence (ruling out accumulated drift)
 
 **Deployment — PyTorch vs. ONNX vs. quantized ONNX**:
 
@@ -103,6 +126,26 @@ python src/segmentation/train.py             # small U-Net, ~15 epochs
 python src/segmentation/evaluate.py
 ```
 
+## Tracking module
+
+Since real fluoroscopic video with known ground-truth motion doesn't
+exist publicly, a synthetic sequence is generated from a real ARCADE
+frame by applying a smooth, non-rigid deformation combining a slow
+respiratory-like component and a faster cardiac-like component — giving
+a known, exact ground truth to validate against.
+
+**Tracking** (`track_and_estimate_motion.py`): sparse keypoints on
+vessel structure followed across the sequence with Lucas-Kanade optical
+flow. **Motion estimation**: dense per-pixel displacement between
+consecutive frames with Farneback optical flow, evaluated against the
+known deformation using End-Point Error (EPE), the standard metric in
+the optical flow literature.
+
+```bash
+python src/tracking/generate_synthetic_sequence.py
+python src/tracking/track_and_estimate_motion.py
+```
+
 ## Deployment module
 
 Prepares the learned registration CNN — the model relevant to real-time
@@ -119,10 +162,20 @@ python src/deployment/validate_onnx.py    # accuracy check across all three vari
 
 This is a portfolio project, not a validated clinical system. Results
 are intended to demonstrate understanding of the underlying techniques
-— 2D-3D registration, classical/learned comparison, and deployment
-optimization — rather than clinical-grade performance. The registration
-generalization gap reflects the small number of subjects available in
-the public DeepFluoro dataset (6 total); a production model would
-require training data spanning substantially more subjects. Segmentation
-uses a public benchmark (ARCADE) rather than data from the specific
-target application (contrast-agent-free cardiovascular fluoroscopy).
+— 2D-3D registration, classical/learned comparison, segmentation,
+motion tracking, and deployment optimization — rather than
+clinical-grade performance.
+
+- The registration generalization gap reflects the small number of
+  subjects available in the public DeepFluoro dataset (6 total); a
+  production model would require training data spanning substantially
+  more subjects.
+- Segmentation uses a public benchmark (ARCADE) rather than data from
+  the specific target application (contrast-agent-free cardiovascular
+  fluoroscopy), and collapses 26 clinically distinct vessel segments
+  into a single binary class.
+- Tracking and motion estimation are validated on a synthetic sequence
+  with known ground truth rather than real fluoroscopic video, since
+  paired video with known motion doesn't exist publicly; real video
+  would introduce additional challenges (contrast variation, instrument
+  occlusion) not present here.
